@@ -19,7 +19,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-white mix-blend-multiply">
+    <div className="min-h-screen w-full flex bg-white">
       {/* Left AD / Hero Panel (Hidden on Mobile) */}
       <div className="hidden lg:flex w-1/2 relative flex-col justify-end overflow-hidden">
         <div className="absolute inset-0">
