@@ -21,12 +21,12 @@ const FormInput = ({ label, type = "text", name, value, onChange, placeholder, o
     return (
       <div className={rows ? `sm:col-span-2` : ''}>
         <label className={labelClass}>{label}</label>
-        <textarea 
+        <textarea
           name={name}
           value={value}
           onChange={onChange}
           rows={rows || 4}
-          className={`${inputClass} resize-none`} 
+          className={`${inputClass} resize-none`}
           placeholder={placeholder}
         />
       </div>
@@ -36,12 +36,12 @@ const FormInput = ({ label, type = "text", name, value, onChange, placeholder, o
   return (
     <div>
       <label className={labelClass}>{label}</label>
-      <input 
-        type={type} 
+      <input
+        type={type}
         name={name}
         value={value}
         onChange={onChange}
-        className={inputClass} 
+        className={inputClass}
         placeholder={placeholder}
       />
     </div>
