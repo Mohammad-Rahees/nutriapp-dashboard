@@ -2,20 +2,22 @@ import React, { useState, useMemo } from 'react';
 import PageLayout from '../components/layout/PageLayout';
 import SectionHeader from '../components/ui/SectionHeader';
 import FoodCard from '../components/ui/FoodCard';
-import { dashboardFoodItems } from '../data/mockData';
 import useStore from '../store/useStore';
 import { SearchX, Filter } from 'lucide-react';
 
 const Dashboard = () => {
-  const { searchQuery } = useStore();
+  const { searchQuery, meals } = useStore();
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeCommonFilter, setActiveCommonFilter] = useState('All');
 
-  const categories = ['All', ...new Set(dashboardFoodItems.map(i => i.category || 'Other'))];
+  const categories = useMemo(() => {
+    return ['All', ...Array.from(new Set(meals.map(i => i.category || 'Other')))];
+  }, [meals]);
+
   const commonFilters = ['All', 'Under 300 kcal', 'Easy Prep', 'Fast (< 20m)'];
 
   const filteredItems = useMemo(() => {
-    return dashboardFoodItems.filter(item => {
+    return meals.filter(item => {
       // 1. Search Query
       if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       
@@ -32,7 +34,7 @@ const Dashboard = () => {
 
       return true;
     });
-  }, [searchQuery, activeCategory, activeCommonFilter]);
+  }, [searchQuery, activeCategory, activeCommonFilter, meals]);
 
   return (
     <PageLayout>

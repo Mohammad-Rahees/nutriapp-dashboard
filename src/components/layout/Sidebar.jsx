@@ -1,12 +1,13 @@
 import React from 'react';
-import { Home, Activity, LayoutGrid, ShoppingCart, X, User, Apple, Info, Mail, LogOut } from 'lucide-react';
+import { Home, Activity, LayoutGrid, ShoppingCart, X, User, Apple, Info, Mail, LogOut, ShieldCheck } from 'lucide-react';
 import useStore from '../../store/useStore';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
-  const { currentRoute, setRoute, logout } = useStore();
+  const { currentRoute, setRoute, logout, user } = useStore();
 
   const menuItems = [
     { name: 'Dashboard', icon: Home, route: 'dashboard' },
+    ...(user?.role === 'Admin' ? [{ name: 'Admin Dashboard', icon: ShieldCheck, route: 'admin' }] : []),
     { name: 'Health Overview', icon: Activity, route: 'overview' },
     { name: 'Categories', icon: LayoutGrid, route: 'categories' },
     { name: 'Order Groceries', icon: ShoppingCart, route: 'order' },

@@ -14,11 +14,11 @@ router.post("/seed", seedFoods);
 
 router.route("/")
   .get(getFoods)
-  .post(protect, createFood);
+  .post(createFood);
 
 router.route("/:id")
   .get(getFoodById)
-  .put(protect, updateFood)
-  .delete(protect, deleteFood);
+  .put(updateFood)
+  .delete(deleteFood);
 
 module.exports = router;

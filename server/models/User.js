@@ -26,12 +26,12 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, "Password is required"],
-      minlength: [6, "Password must be at least 6 characters"],
+      minlength: [4, "Password must be at least 4 characters"],
     },
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: ["Customer", "Admin", "user", "admin"],
+      default: "Customer",
     },
     age: {
       type: Number,
@@ -79,6 +79,42 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 65,
     },
+    phone: {
+      type: String,
+      default: "",
+    },
+    dob: {
+      type: String,
+      default: "",
+    },
+    address: {
+      type: String,
+      default: "",
+    },
+    city: {
+      type: String,
+      default: "",
+    },
+    state: {
+      type: String,
+      default: "",
+    },
+    country: {
+      type: String,
+      default: "",
+    },
+    postalCode: {
+      type: String,
+      default: "",
+    },
+    avatar: {
+      type: String,
+      default: "",
+    },
+    bio: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,
@@ -86,16 +122,15 @@ const userSchema = new mongoose.Schema(
 );
 
 // Pre-save hook to hash password and set username default if empty
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   if (!this.username && this.name) {
     this.username = this.name.toLowerCase().replace(/\s+/g, "_");
   }
   if (!this.isModified("password")) {
-    return next();
+    return;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // Match user password method

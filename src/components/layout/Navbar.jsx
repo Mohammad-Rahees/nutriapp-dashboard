@@ -3,7 +3,10 @@ import { Search, Bell, Menu, Sun, Moon, Apple } from 'lucide-react';
 import useStore from '../../store/useStore';
 
 const Navbar = ({ toggleSidebar }) => {
-  const { searchQuery, setSearchQuery, theme, toggleTheme } = useStore();
+  const { searchQuery, setSearchQuery, theme, toggleTheme, user } = useStore();
+  const displayName = user?.name || user?.username || 'Guest User';
+  const roleLabel = (user?.role || 'CUSTOMER').toUpperCase();
+  const avatarUrl = user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=f3e8ff&color=9333ea&bold=true`;
 
   return (
     <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b border-gray-100 shadow-sm h-16 transition-all duration-300">
@@ -58,11 +61,15 @@ const Navbar = ({ toggleSidebar }) => {
 
           <button className="flex items-center gap-3 px-2 py-1.5 hover:bg-gray-50 rounded-xl transition-all duration-300">
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-sm font-semibold text-gray-800">Jane Doe</span>
-              <span className="text-xs text-gray-400 font-medium tracking-wide w-full text-right">MEMBER</span>
+              <span className="text-sm font-semibold text-gray-800">{displayName}</span>
+              <span className={`text-[10px] font-extrabold tracking-wide px-2 py-0.5 rounded-full ${
+                user?.role === 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
+              }`}>
+                {roleLabel}
+              </span>
             </div>
             <img
-              src="https://ui-avatars.com/api/?name=Jane+Doe&background=f3e8ff&color=9333ea&bold=true"
+              src={avatarUrl}
               alt="User profile"
               className="w-9 h-9 rounded-xl border border-gray-100 shadow-sm"
             />

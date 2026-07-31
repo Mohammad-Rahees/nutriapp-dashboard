@@ -1,20 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageLayout from '../components/layout/PageLayout';
 import CartItem from '../components/order/CartItem';
 import OrderSummary from '../components/order/OrderSummary';
-import DeliveryTracker from '../components/order/DeliveryTracker';
-import CourierInfo from '../components/order/CourierInfo';
 import useStore from '../store/useStore';
-import { ShoppingBag, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, CheckCircle2, Clock, PackageCheck, Truck, Calendar, ShieldCheck, RefreshCw, CreditCard } from 'lucide-react';
 
 const Order = () => {
-  const { cartItems, updateQuantity, clearCart } = useStore();
+  const { 
+    cartItems, removeFromCart, addToCart, clearCart, 
+    startRazorpayCheckout, retryRazorpayCheckout, customerOrders, fetchCustomerOrders 
+  } = useStore();
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
 
-  const handlePlaceOrder = () => {
+  useEffect(() => {
+    fetchCustomerOrders();
+  }, [fetchCustomerOrders]);
+
+  const handlePlaceOrder = async () => {
     if (cartItems.length > 0) {
-      setIsOrderPlaced(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      await startRazorpayCheckout();
     }
   };
 
@@ -28,37 +32,17 @@ const Order = () => {
     <PageLayout>
       <div className="mb-6 lg:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Order Details</h1>
-          <p className="text-gray-500 text-sm mt-1">Review your cart and track your delivery.</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Order Details & Cart</h1>
+          <p className="text-gray-500 text-sm mt-1">Review your cart, proceed to checkout, and track your active orders.</p>
         </div>
-        {isOrderPlaced && (
-          <div className="flex items-center gap-2 bg-purple-50 text-purple-700 px-4 py-2 rounded-full font-semibold text-sm w-fit shadow-sm hover:shadow-md transition-all duration-300">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
-            </span>
-            In Transit
-          </div>
-        )}
       </div>
 
-      {isOrderPlaced && (
-        <div className="mb-8 bg-green-50 border border-green-200 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-green-900">Order Placed Successfully!</h2>
-            <p className="text-sm text-green-700 mt-1">Your delicious food is being prepared. You can track its progress below.</p>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mb-12">
+        {/* Left Column: Cart Items */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-purple-500" />
-            Your Items
+            Your Shopping Cart
           </h2>
           
           {cartItems.length > 0 ? (
@@ -67,7 +51,9 @@ const Order = () => {
                 <CartItem 
                   key={item.id} 
                   item={item} 
-                  onUpdateQuantity={updateQuantity}
+                  onIncrease={() => addToCart(item)}
+                  onDecrease={() => removeFromCart(item.id)}
+                  onRemove={() => removeFromCart(item.id, true)}
                 />
               ))}
             </div>
@@ -80,20 +66,119 @@ const Order = () => {
           )}
         </div>
 
+        {/* Right Column: Summary & Checkout */}
         <div className="space-y-6">
           <OrderSummary 
             items={cartItems} 
             onPlaceOrder={handlePlaceOrder} 
             onClearCart={handleClearCart} 
-            cartHasItems={cartItems.length > 0 && !isOrderPlaced} 
+            cartHasItems={cartItems.length > 0} 
           />
-          {isOrderPlaced && (
-            <>
-              <DeliveryTracker />
-              <CourierInfo />
-            </>
-          )}
         </div>
+      </div>
+
+      {/* Customer Orders History & Live Tracking Section */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <PackageCheck className="w-6 h-6 text-purple-600" />
+              My Orders & Live Tracking
+            </h2>
+            <p className="text-gray-500 text-xs mt-1">Track live status updates on your past purchases updated by the kitchen and delivery team.</p>
+          </div>
+          <button
+            onClick={() => fetchCustomerOrders()}
+            className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 w-fit"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh Order Status
+          </button>
+        </div>
+
+        {customerOrders.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 text-sm font-medium">
+            You haven't placed any orders yet. Completing a checkout will display your live order tracking here.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {customerOrders.map((order) => {
+              const orderId = order._id ? String(order._id) : order.razorpayOrderId || 'ORD-UNKNOWN';
+              const dateStr = new Date(order.createdAt || Date.now()).toLocaleString('en-US', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              });
+
+              // Status Badge Color Mapping
+              const statusColors = {
+                Pending: 'bg-amber-100 text-amber-800 border-amber-200',
+                Preparing: 'bg-blue-100 text-blue-800 border-blue-200',
+                Shipped: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                'In Transit': 'bg-purple-100 text-purple-800 border-purple-200',
+                Delivered: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                Cancelled: 'bg-rose-100 text-rose-800 border-rose-200',
+              };
+
+              return (
+                <div key={order._id} className="bg-gray-50/70 rounded-2xl p-5 border border-gray-100 space-y-4">
+                  {/* Order Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200/60 pb-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900 text-sm">Order #{orderId.slice(-8)}</span>
+                        <span className={`text-xs font-black px-3 py-0.5 rounded-full border ${statusColors[order.status] || 'bg-gray-100 text-gray-700'}`}>
+                          ● {order.status || 'Pending'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-gray-400" /> Placed on {dateStr}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-gray-500">Payment:</span>
+                      {order.paymentStatus === 'Pending' ? (
+                        <button
+                          onClick={() => retryRazorpayCheckout(order)}
+                          className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 hover:scale-105"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          Complete Payment
+                        </button>
+                      ) : (
+                        <span className="text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Paid
+                        </span>
+                      )}
+                      <span className="text-lg font-black text-purple-700 ml-2">₹{Number(order.totalAmount || 0).toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {/* Purchased Items List */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {order.orderItems && order.orderItems.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-gray-100 shadow-2xs">
+                        <img
+                          src={item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80&auto=format&fit=crop'}
+                          alt={item.title}
+                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-800 truncate">{item.title}</p>
+                          <p className="text-2xs text-gray-400 font-medium">Qty: {item.quantity} × ₹{Number(item.price || 0).toFixed(2)}</p>
+                        </div>
+                        <span className="text-xs font-bold text-gray-800">
+                          ₹{(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </PageLayout>
   );

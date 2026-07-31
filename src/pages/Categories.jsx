@@ -2,16 +2,15 @@ import React, { useMemo } from 'react';
 import PageLayout from '../components/layout/PageLayout';
 import SectionHeader from '../components/ui/SectionHeader';
 import FoodCard from '../components/ui/FoodCard';
-import { dashboardFoodItems } from '../data/mockData';
 import useStore from '../store/useStore';
 import { SearchX } from 'lucide-react';
 
 const Categories = () => {
-  const { searchQuery } = useStore();
+  const { searchQuery, meals } = useStore();
 
   const categoriesMap = useMemo(() => {
     // Collect all foods matching search query
-    const filtered = dashboardFoodItems.filter(item => 
+    const filtered = meals.filter(item => 
       item.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -22,7 +21,7 @@ const Categories = () => {
       acc[category].push(item);
       return acc;
     }, {});
-  }, [searchQuery]);
+  }, [searchQuery, meals]);
 
   const categoryKeys = Object.keys(categoriesMap).sort();
 

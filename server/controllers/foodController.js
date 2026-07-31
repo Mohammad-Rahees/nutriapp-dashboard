@@ -32,8 +32,26 @@ const getFoods = async (req, res, next) => {
       ];
     }
 
-    const foods = await Food.find(query).populate("createdBy", "name email");
-    res.json(foods);
+    let foods = await Food.find(query).populate("createdBy", "name email");
+
+    // If database is empty, auto-seed initial food items so default data is present in DB
+    if (foods.length === 0 && !search && (!category || category === "All")) {
+      const count = await Food.countDocuments();
+      if (count === 0) {
+        await Food.insertMany(initialFoodItems);
+        foods = await Food.find(query).populate("createdBy", "name email");
+      }
+    }
+
+    const formattedFoods = foods.map((f) => {
+      const obj = f.toObject ? f.toObject() : f;
+      return {
+        ...obj,
+        id: obj._id ? obj._id.toString() : obj.id,
+      };
+    });
+
+    res.json(formattedFoods);
   } catch (error) {
     next(error);
   }
@@ -47,7 +65,8 @@ const getFoodById = async (req, res, next) => {
     const food = await Food.findById(req.params.id).populate("createdBy", "name email");
 
     if (food) {
-      res.json(food);
+      const obj = food.toObject();
+      res.json({ ...obj, id: obj._id.toString() });
     } else {
       res.status(404);
       throw new Error("Food item not found");
@@ -59,10 +78,10 @@ const getFoodById = async (req, res, next) => {
 
 // @desc    Create new food item
 // @route   POST /api/foods
-// @access  Private
+// @access  Private/Public
 const createFood = async (req, res, next) => {
   try {
-    const { name, title, category, image, calories, protein, carbs, fat, servingSize, time, difficulty, price } = req.body;
+    const { name, title, description, category, image, calories, protein, carbs, fat, servingSize, time, difficulty, price } = req.body;
 
     const foodName = name || title;
 
@@ -74,22 +93,24 @@ const createFood = async (req, res, next) => {
     const food = new Food({
       name: foodName,
       title: foodName,
+      description: description || "",
       category: category || "Other",
       image,
-      calories,
-      protein: protein || 0,
-      carbs: carbs || 0,
-      fat: fat || 0,
+      calories: Number(calories) || 0,
+      protein: Number(protein) || 0,
+      carbs: Number(carbs) || 0,
+      fat: Number(fat) || 0,
       servingSize: servingSize || "1 serving",
       time: time || "15 min",
       difficulty: difficulty || "Easy",
-      price: price || 9.99,
+      price: Number(price) || 9.99,
       createdBy: req.user ? req.user._id : null,
       user: req.user ? req.user._id : null,
     });
 
     const createdFood = await food.save();
-    res.status(201).json(createdFood);
+    const obj = createdFood.toObject();
+    res.status(201).json({ ...obj, id: obj._id.toString() });
   } catch (error) {
     next(error);
   }
