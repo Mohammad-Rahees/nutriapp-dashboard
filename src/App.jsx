@@ -7,6 +7,7 @@ import ProfileSettings from './pages/ProfileSettings';
 import AboutUs from './pages/AboutUs';
 import ContactUs from './pages/ContactUs';
 import AdminDashboard from './pages/AdminDashboard';
+import DeliveryDashboard from './pages/DeliveryDashboard';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailed from './pages/PaymentFailed';
 import Login from './pages/Login';
@@ -17,18 +18,22 @@ function App() {
 
   if (!isAuthenticated) return <Login />;
 
-  // Prevent non-admin users from viewing admin pages
+  // Role based route guards
   const isAdminRoute = currentRoute === 'admin';
   const isAuthorizedAdmin = user?.role === 'Admin';
 
+  const isDeliveryRoute = currentRoute === 'delivery';
+  const isAuthorizedDelivery = user?.role === 'Delivery';
+
   return (
     <>
-      {isAdminRoute && isAuthorizedAdmin ? (
-        <AdminDashboard />
-      ) : (
-        currentRoute === 'admin' && <Dashboard />
-      )}
-      {currentRoute === 'dashboard' && <Dashboard />}
+      {isAdminRoute && isAuthorizedAdmin && <AdminDashboard />}
+      {isAdminRoute && !isAuthorizedAdmin && <Dashboard />}
+
+      {isDeliveryRoute && isAuthorizedDelivery && <DeliveryDashboard />}
+      {isDeliveryRoute && !isAuthorizedDelivery && <Dashboard />}
+
+      {currentRoute === 'dashboard' && (user?.role === 'Delivery' ? <DeliveryDashboard /> : <Dashboard />)}
       {currentRoute === 'overview' && <HealthOverview />}
       {currentRoute === 'categories' && <Categories />}
       {currentRoute === 'order' && <Order />}

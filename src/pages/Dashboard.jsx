@@ -6,7 +6,7 @@ import useStore from '../store/useStore';
 import { SearchX, Filter } from 'lucide-react';
 
 const Dashboard = () => {
-  const { searchQuery, meals } = useStore();
+  const { searchQuery, meals, user, setRoute } = useStore();
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeCommonFilter, setActiveCommonFilter] = useState('All');
 
@@ -38,6 +38,29 @@ const Dashboard = () => {
 
   return (
     <PageLayout>
+      {/* Profile Completion Banner for Customers */}
+      {user && user.role === 'Customer' && !user.profileCompleted && (
+        <div className="mb-6 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-orange-500/10 border border-amber-300/80 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-md">
+              !
+            </div>
+            <div>
+              <h3 className="font-extrabold text-amber-900 text-base">Complete Profile Required</h3>
+              <p className="text-xs text-amber-800 font-medium mt-0.5">
+                Please complete your phone number and delivery address to place food orders smoothly.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setRoute('profile')}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-md self-start sm:self-auto flex items-center gap-1.5"
+          >
+            Complete Profile ➔
+          </button>
+        </div>
+      )}
+
       <div className="mb-6 lg:mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Food Menu</h1>
         <p className="text-gray-500 text-sm mt-1">Browse, filter and add items to your cart.</p>

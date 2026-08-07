@@ -16,14 +16,10 @@ const orderRoutes = require("./routes/orderRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 
-const { seedAdminIfNeeded } = require("./controllers/authController");
-
 dotenv.config();
 
-// Connect to Database and Seed Admin User
-connectDB().then(() => {
-  seedAdminIfNeeded();
-});
+// Connect to Database
+connectDB();
 
 const app = express();
 

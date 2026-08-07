@@ -11,6 +11,8 @@ const useStore = create((set, get) => ({
   orders: [],
   adminOrders: [],
   customerOrders: [],
+  deliveryOrders: [],
+  deliveryUsers: [],
   latestOrder: null,
   paymentError: '',
   selectedRecipe: null,
@@ -154,6 +156,174 @@ const useStore = create((set, get) => ({
     return { success: false };
   },
 
+  // Fetch logged in delivery person's assigned orders
+  fetchDeliveryOrders: async () => {
+    const user = get().user;
+    const deliveryPersonId = user?._id || user?.id;
+    if (!deliveryPersonId) return;
+    try {
+      const res = await fetch(`${BASE_URL}/orders?deliveryPerson=${deliveryPersonId}`, {
+        headers: user?.token ? { Authorization: `Bearer ${user.token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          set({ deliveryOrders: data });
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch delivery orders from MongoDB:', err);
+    }
+  },
+
+  // Fetch all delivery personnel for Admin assignment dropdown & management
+  fetchDeliveryUsers: async () => {
+    try {
+      const user = get().user;
+      const res = await fetch(`${BASE_URL}/users?role=Delivery`, {
+        headers: user?.token ? { Authorization: `Bearer ${user.token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          set({ deliveryUsers: data });
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch delivery users from MongoDB:', err);
+    }
+  },
+
+  // Admin create new delivery user account
+  createDeliveryUser: async (userData) => {
+    try {
+      const user = get().user;
+      const res = await fetch(`${BASE_URL}/users/delivery`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        set((state) => ({
+          deliveryUsers: [data, ...state.deliveryUsers],
+        }));
+        return { success: true, user: data };
+      } else {
+        return { success: false, message: data.message || 'Failed to create delivery account' };
+      }
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  },
+
+  // Admin update user details / toggle active status
+  updateUserById: async (userId, userData) => {
+    try {
+      const user = get().user;
+      const res = await fetch(`${BASE_URL}/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        set((state) => ({
+          deliveryUsers: state.deliveryUsers.map((u) => (u._id === userId ? data : u)),
+        }));
+        return { success: true, user: data };
+      } else {
+        return { success: false, message: data.message || 'Failed to update user' };
+      }
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  },
+
+  // Admin delete user account
+  deleteUserAccount: async (userId) => {
+    try {
+      const user = get().user;
+      const res = await fetch(`${BASE_URL}/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
+      });
+
+      if (res.ok) {
+        set((state) => ({
+          deliveryUsers: state.deliveryUsers.filter((u) => u._id !== userId),
+        }));
+        return { success: true };
+      }
+    } catch (err) {
+      console.error('Error deleting user:', err);
+    }
+    return { success: false };
+  },
+
+  // Admin assign delivery person to an order
+  assignDeliveryPerson: async (orderId, deliveryPersonId, estimatedDeliveryTime, deliveryAddress, deliveryPhone) => {
+    try {
+      const user = get().user;
+      const res = await fetch(`${BASE_URL}/orders/${orderId}/assign`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
+        body: JSON.stringify({ deliveryPersonId, estimatedDeliveryTime, deliveryAddress, deliveryPhone }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        set((state) => ({
+          adminOrders: state.adminOrders.map((o) => (o._id === orderId ? updated : o)),
+          orders: state.orders.map((o) => (o._id === orderId ? updated : o)),
+        }));
+        return { success: true, order: updated };
+      }
+    } catch (err) {
+      console.error('Error assigning delivery person:', err);
+    }
+    return { success: false };
+  },
+
+  // Delivery update status & payment collection
+  updateDeliveryStatus: async (orderId, deliveryStatus, paymentCollected) => {
+    try {
+      const user = get().user;
+      const res = await fetch(`${BASE_URL}/orders/${orderId}/delivery-status`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
+        body: JSON.stringify({ deliveryStatus, paymentCollected }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        set((state) => ({
+          deliveryOrders: state.deliveryOrders.map((o) => (o._id === orderId ? updated : o)),
+          adminOrders: state.adminOrders.map((o) => (o._id === orderId ? updated : o)),
+          customerOrders: state.customerOrders.map((o) => (o._id === orderId ? updated : o)),
+        }));
+        return { success: true, order: updated };
+      }
+    } catch (err) {
+      console.error('Error updating delivery status:', err);
+    }
+    return { success: false };
+  },
+
   toggleTheme: () => set((state) => {
     const newTheme = state.theme === 'light' ? 'dark' : 'light';
     if (newTheme === 'dark') {
@@ -177,7 +347,11 @@ const useStore = create((set, get) => ({
       const data = await res.json();
 
       if (res.ok && data) {
-        const role = data.role && data.role.toLowerCase() === 'admin' ? 'Admin' : 'Customer';
+        const rawRole = data.role ? data.role.toLowerCase() : 'customer';
+        let role = 'Customer';
+        if (rawRole === 'admin') role = 'Admin';
+        if (rawRole === 'delivery') role = 'Delivery';
+
         const userObj = {
           _id: data._id,
           id: data._id,
@@ -188,10 +362,14 @@ const useStore = create((set, get) => ({
           token: data.token,
         };
 
+        let targetRoute = 'dashboard';
+        if (role === 'Admin') targetRoute = 'admin';
+        if (role === 'Delivery') targetRoute = 'delivery';
+
         set({
           isAuthenticated: true,
           user: userObj,
-          currentRoute: role === 'Admin' ? 'admin' : 'dashboard',
+          currentRoute: targetRoute,
           authError: '',
         });
 
@@ -311,7 +489,10 @@ const useStore = create((set, get) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   setRoute: (route) => set((state) => {
     if (route === 'admin' && state.user?.role !== 'Admin') {
-      return { currentRoute: 'dashboard' };
+      return { currentRoute: state.user?.role === 'Delivery' ? 'delivery' : 'dashboard' };
+    }
+    if (route === 'delivery' && state.user?.role !== 'Delivery') {
+      return { currentRoute: state.user?.role === 'Admin' ? 'admin' : 'dashboard' };
     }
     return { currentRoute: route };
   }),

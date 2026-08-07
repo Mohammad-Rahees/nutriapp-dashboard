@@ -1,16 +1,21 @@
 import React from 'react';
-import { Home, Activity, LayoutGrid, ShoppingCart, X, User, Apple, Info, Mail, LogOut, ShieldCheck } from 'lucide-react';
+import { Home, Activity, LayoutGrid, ShoppingCart, X, User, Apple, Info, Mail, LogOut, ShieldCheck, Truck } from 'lucide-react';
 import useStore from '../../store/useStore';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { currentRoute, setRoute, logout, user } = useStore();
 
   const menuItems = [
-    { name: 'Dashboard', icon: Home, route: 'dashboard' },
+    ...(user?.role === 'Delivery' 
+      ? [{ name: 'Delivery Dashboard', icon: Truck, route: 'delivery' }]
+      : [{ name: 'Dashboard', icon: Home, route: 'dashboard' }]
+    ),
     ...(user?.role === 'Admin' ? [{ name: 'Admin Dashboard', icon: ShieldCheck, route: 'admin' }] : []),
-    { name: 'Health Overview', icon: Activity, route: 'overview' },
-    { name: 'Categories', icon: LayoutGrid, route: 'categories' },
-    { name: 'Order Groceries', icon: ShoppingCart, route: 'order' },
+    ...(user?.role !== 'Delivery' ? [
+      { name: 'Health Overview', icon: Activity, route: 'overview' },
+      { name: 'Categories', icon: LayoutGrid, route: 'categories' },
+      { name: 'Order Groceries', icon: ShoppingCart, route: 'order' },
+    ] : []),
     { name: 'Profile Settings', icon: User, route: 'profile' },
     { name: 'About Us', icon: Info, route: 'about' },
     { name: 'Contact Us', icon: Mail, route: 'contact' },

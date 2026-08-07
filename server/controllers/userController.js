@@ -69,12 +69,16 @@ const updateUserProfile = async (req, res, next) => {
   }
 };
 
-// @desc    Get all users
+// @desc    Get all users (optional filter by role)
 // @route   GET /api/users
 // @access  Private/Admin
 const getUsers = async (req, res, next) => {
   try {
-    const users = await User.find({}).select("-password");
+    const filter = {};
+    if (req.query.role) {
+      filter.role = { $regex: `^${req.query.role}$`, $options: "i" };
+    }
+    const users = await User.find(filter).select("-password");
     res.json(users);
   } catch (error) {
     next(error);
@@ -100,9 +104,94 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
+// @desc    Create new Delivery Personnel user (Admin endpoint)
+// @route   POST /api/users/delivery
+// @access  Private/Admin
+const createDeliveryUser = async (req, res, next) => {
+  try {
+    const { 
+      name, username, email, password, phone, gender, 
+      vehicleType, vehicleNumber, emergencyContact 
+    } = req.body;
+
+    const chosenUsername = (username || name || "delivery_user").trim().toLowerCase().replace(/\s+/g, "_");
+    const userEmail = (email || `${chosenUsername}@nutriapp.com`).trim().toLowerCase();
+
+    if (!password) {
+      res.status(400);
+      throw new Error("Password is required for new delivery personnel account");
+    }
+
+    const userExists = await User.findOne({ $or: [{ email: userEmail }, { username: chosenUsername }] });
+    if (userExists) {
+      res.status(400);
+      throw new Error("User with this email or username already exists");
+    }
+
+    const user = await User.create({
+      name: name || chosenUsername,
+      username: chosenUsername,
+      email: userEmail,
+      password: password.trim(),
+      role: "Delivery",
+      phone: phone || "",
+      gender: gender || "Prefer not to say",
+      vehicleType: vehicleType || "Bike",
+      vehicleNumber: vehicleNumber || "",
+      emergencyContact: emergencyContact || "",
+      isActive: true,
+      profileCompleted: true,
+    });
+
+    const userObj = user.toObject();
+    delete userObj.password;
+
+    res.status(201).json(userObj);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update user details by Admin (e.g. edit delivery details, toggle status)
+// @route   PUT /api/users/:id
+// @access  Private/Admin
+const updateUserById = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      res.status(404);
+      throw new Error("User not found");
+    }
+
+    user.name = req.body.name !== undefined ? req.body.name : user.name;
+    user.username = req.body.username !== undefined ? req.body.username : user.username;
+    user.email = req.body.email !== undefined ? req.body.email : user.email;
+    user.phone = req.body.phone !== undefined ? req.body.phone : user.phone;
+    user.gender = req.body.gender !== undefined ? req.body.gender : user.gender;
+    user.vehicleType = req.body.vehicleType !== undefined ? req.body.vehicleType : user.vehicleType;
+    user.vehicleNumber = req.body.vehicleNumber !== undefined ? req.body.vehicleNumber : user.vehicleNumber;
+    user.emergencyContact = req.body.emergencyContact !== undefined ? req.body.emergencyContact : user.emergencyContact;
+    user.isActive = req.body.isActive !== undefined ? Boolean(req.body.isActive) : user.isActive;
+
+    if (req.body.password && req.body.password.trim().length > 0) {
+      user.password = req.body.password.trim();
+    }
+
+    const updatedUser = await user.save();
+    const userObj = updatedUser.toObject();
+    delete userObj.password;
+
+    res.json(userObj);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUserProfile,
   updateUserProfile,
   getUsers,
   deleteUser,
+  createDeliveryUser,
+  updateUserById,
 };

@@ -63,7 +63,11 @@ const Navbar = ({ toggleSidebar }) => {
             <div className="hidden sm:flex flex-col items-end">
               <span className="text-sm font-semibold text-gray-800">{displayName}</span>
               <span className={`text-[10px] font-extrabold tracking-wide px-2 py-0.5 rounded-full ${
-                user?.role === 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
+                user?.role === 'Admin' 
+                  ? 'bg-purple-100 text-purple-700' 
+                  : user?.role === 'Delivery' 
+                  ? 'bg-indigo-100 text-indigo-700' 
+                  : 'bg-gray-100 text-gray-500'
               }`}>
                 {roleLabel}
               </span>

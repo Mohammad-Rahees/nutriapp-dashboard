@@ -41,6 +41,38 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: "25-30 min",
     },
+    deliveryPerson: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    deliveryStatus: {
+      type: String,
+      enum: ["Unassigned", "Assigned", "Picked Up", "Out for Delivery", "Delivered", "Failed Delivery"],
+      default: "Unassigned",
+    },
+    assignedAt: {
+      type: Date,
+    },
+    deliveredAt: {
+      type: Date,
+    },
+    paymentCollected: {
+      type: Boolean,
+      default: false,
+    },
+    deliveryAddress: {
+      type: String,
+      default: "",
+    },
+    deliveryPhone: {
+      type: String,
+      default: "",
+    },
+    location: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
   },
   {
     timestamps: true,

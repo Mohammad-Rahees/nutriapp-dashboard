@@ -12,19 +12,37 @@ import {
 const AdminDashboard = () => {
   const { 
     user, meals, categories, addMeal, updateMeal, deleteMeal, 
-    adminOrders, fetchAdminOrders, updateOrderStatus, setRoute 
+    adminOrders, fetchAdminOrders, updateOrderStatus, setRoute,
+    deliveryUsers, fetchDeliveryUsers, assignDeliveryPerson,
+    createDeliveryUser, updateUserById, deleteUserAccount
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'meals'
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'delivery' | 'meals'
   const [mealSubTab, setMealSubTab] = useState('manage'); // 'manage' | 'add'
 
   // Edit Meal Modal State
   const [editingMeal, setEditingMeal] = useState(null);
 
-  // Fetch admin orders on mount
+  // Delivery Personnel Modal & Form State
+  const [isAddDeliveryModalOpen, setIsAddDeliveryModalOpen] = useState(false);
+  const [editingDeliveryUser, setEditingDeliveryUser] = useState(null);
+
+  const [delName, setDelName] = useState('');
+  const [delUsername, setDelUsername] = useState('');
+  const [delEmail, setDelEmail] = useState('');
+  const [delPhone, setDelPhone] = useState('');
+  const [delPassword, setDelPassword] = useState('');
+  const [delConfirmPassword, setDelConfirmPassword] = useState('');
+  const [delGender, setDelGender] = useState('Prefer not to say');
+  const [delVehicleType, setDelVehicleType] = useState('Bike');
+  const [delVehicleNumber, setDelVehicleNumber] = useState('');
+  const [delEmergencyContact, setDelEmergencyContact] = useState('');
+
+  // Fetch admin orders & delivery users on mount
   useEffect(() => {
     fetchAdminOrders();
-  }, [fetchAdminOrders]);
+    fetchDeliveryUsers();
+  }, [fetchAdminOrders, fetchDeliveryUsers]);
 
   // Form State (Add New Meal)
   const [title, setTitle] = useState('');
@@ -40,6 +58,80 @@ const AdminDashboard = () => {
   const [imagePreview, setImagePreview] = useState('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80&auto=format&fit=crop');
 
   const [notification, setNotification] = useState(null);
+
+  // Delivery Personnel Handlers
+  const handleAddDeliverySubmit = async (e) => {
+    e.preventDefault();
+    if (!delName.trim() || !delUsername.trim() || !delEmail.trim() || !delPassword.trim()) {
+      setNotification({ type: 'error', message: 'Please fill in all required fields.' });
+      return;
+    }
+    if (delPassword !== delConfirmPassword) {
+      setNotification({ type: 'error', message: 'Passwords do not match.' });
+      return;
+    }
+
+    const payload = {
+      name: delName.trim(),
+      username: delUsername.trim().toLowerCase().replace(/\s+/g, '_'),
+      email: delEmail.trim().toLowerCase(),
+      phone: delPhone.trim(),
+      password: delPassword.trim(),
+      gender: delGender,
+      vehicleType: delVehicleType,
+      vehicleNumber: delVehicleNumber.trim(),
+      emergencyContact: delEmergencyContact.trim(),
+    };
+
+    const res = await createDeliveryUser(payload);
+    if (res.success) {
+      setNotification({ type: 'success', message: `✅ Created Delivery Personnel: ${payload.name}` });
+      setIsAddDeliveryModalOpen(false);
+      setDelName(''); setDelUsername(''); setDelEmail(''); setDelPhone('');
+      setDelPassword(''); setDelConfirmPassword(''); setDelVehicleNumber(''); setDelEmergencyContact('');
+    } else {
+      setNotification({ type: 'error', message: res.message || 'Failed to create delivery user.' });
+    }
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleEditDeliverySubmit = async (e) => {
+    e.preventDefault();
+    if (!editingDeliveryUser) return;
+
+    const res = await updateUserById(editingDeliveryUser._id, editingDeliveryUser);
+    if (res.success) {
+      setNotification({ type: 'success', message: `✅ Updated Delivery Personnel: ${editingDeliveryUser.name}` });
+      setEditingDeliveryUser(null);
+    } else {
+      setNotification({ type: 'error', message: res.message || 'Failed to update delivery user.' });
+    }
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleToggleUserActive = async (u) => {
+    const newStatus = u.isActive === false ? true : false;
+    const res = await updateUserById(u._id, { isActive: newStatus });
+    if (res.success) {
+      setNotification({
+        type: 'success',
+        message: `User ${u.name} status set to ${newStatus ? 'Active' : 'Inactive'}.`,
+      });
+    }
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleDeleteDeliveryUser = async (u) => {
+    if (window.confirm(`Are you sure you want to delete delivery personnel ${u.name}?`)) {
+      const res = await deleteUserAccount(u._id);
+      if (res.success) {
+        setNotification({ type: 'success', message: `Deleted user ${u.name}.` });
+      } else {
+        setNotification({ type: 'error', message: 'Failed to delete user.' });
+      }
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
 
   // Orders Filter & Search State
   const [orderSearch, setOrderSearch] = useState('');
@@ -308,6 +400,17 @@ const AdminDashboard = () => {
             Orders ({stats.totalOrders})
           </button>
           <button
+            onClick={() => setActiveTab('delivery')}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center gap-2 ${
+              activeTab === 'delivery'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-gray-600 hover:text-purple-600'
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            Delivery Personnel ({deliveryUsers.length})
+          </button>
+          <button
             onClick={() => setActiveTab('meals')}
             className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center gap-2 ${
               activeTab === 'meals'
@@ -519,6 +622,22 @@ const AdminDashboard = () => {
                             <option value="Cancelled">Cancelled</option>
                           </select>
                         </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-400 font-semibold">Assign Delivery:</span>
+                          <select
+                            value={order.deliveryPerson?._id || order.deliveryPerson || ''}
+                            onChange={(e) => assignDeliveryPerson(order._id, e.target.value || null)}
+                            className="bg-indigo-50 border border-indigo-200 text-indigo-900 font-bold text-xs rounded-xl px-3 py-1.5 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-200 transition-all"
+                          >
+                            <option value="">Unassigned</option>
+                            {deliveryUsers && deliveryUsers.map((u) => (
+                              <option key={u._id} value={u._id}>
+                                🚚 {u.name || u.username} ({u.phone || 'No phone'})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
 
@@ -564,7 +683,149 @@ const AdminDashboard = () => {
       )}
 
       {/* ========================================================= */}
-      {/* TAB 2: MEAL MANAGEMENT (MANAGE CATALOG & ADD NEW MEAL) */}
+      {/* TAB 2: DELIVERY PERSONNEL MANAGEMENT */}
+      {/* ========================================================= */}
+      {activeTab === 'delivery' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div>
+              <h2 className="text-xl font-extrabold text-gray-800 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-purple-600" />
+                Delivery Personnel Accounts
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Create, edit, toggle active status, and assign orders to delivery personnel.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsAddDeliveryModalOpen(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center gap-2 self-start sm:self-auto"
+            >
+              <PlusCircle className="w-4 h-4" /> Add Delivery Personnel
+            </button>
+          </div>
+
+          {/* Delivery Personnel Cards Grid */}
+          {deliveryUsers.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
+              <Truck className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <h3 className="font-bold text-gray-800 text-lg mb-1">No Delivery Personnel Registered</h3>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
+                Click "Add Delivery Personnel" above to create your first delivery account.
+              </p>
+              <button
+                onClick={() => setIsAddDeliveryModalOpen(true)}
+                className="bg-purple-600 text-white font-bold text-xs px-4 py-2 rounded-xl"
+              >
+                + Create Delivery Account
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {deliveryUsers.map((u) => {
+                const assignedOrdersCount = adminOrders.filter(
+                  (o) => (o.deliveryPerson?._id || o.deliveryPerson) === u._id
+                ).length;
+                const isUserActive = u.isActive !== false;
+
+                return (
+                  <div
+                    key={u._id}
+                    className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || u.username)}&background=f3e8ff&color=9333ea&bold=true`}
+                            alt={u.name}
+                            className="w-12 h-12 rounded-2xl border border-purple-100 object-cover"
+                          />
+                          <div>
+                            <h3 className="font-bold text-gray-900 text-base">{u.name}</h3>
+                            <p className="text-xs text-purple-600 font-mono font-bold">@{u.username}</p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                            isUserActive
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              : 'bg-rose-100 text-rose-700 border border-rose-200'
+                          }`}
+                        >
+                          {isUserActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 bg-gray-50 p-4 rounded-2xl text-xs border border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400 font-semibold">Email:</span>
+                          <span className="font-bold text-gray-800 truncate max-w-[170px]">{u.email}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400 font-semibold">Phone:</span>
+                          <span className="font-bold text-gray-800">{u.phone || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400 font-semibold">Vehicle:</span>
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
+                            {u.vehicleType || 'Bike'} {u.vehicleNumber ? `(${u.vehicleNumber})` : ''}
+                          </span>
+                        </div>
+                        {u.emergencyContact && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-400 font-semibold">Emergency:</span>
+                            <span className="font-bold text-gray-700">{u.emergencyContact}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-200/60">
+                          <span className="text-gray-400 font-semibold">Assigned Orders:</span>
+                          <span className="font-extrabold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full text-xs">
+                            {assignedOrdersCount} Orders
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                      <button
+                        onClick={() => handleToggleUserActive(u)}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
+                          isUserActive
+                            ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                        }`}
+                      >
+                        {isUserActive ? 'Deactivate' : 'Activate'}
+                      </button>
+
+                      <button
+                        onClick={() => setEditingDeliveryUser({ ...u })}
+                        className="p-2 bg-gray-100 hover:bg-purple-50 hover:text-purple-600 text-gray-600 rounded-xl transition-all border border-gray-200"
+                        title="Edit Personnel Details"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteDeliveryUser(u)}
+                        className="p-2 bg-gray-100 hover:bg-rose-50 hover:text-rose-600 text-gray-600 rounded-xl transition-all border border-gray-200"
+                        title="Delete Personnel"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 3: MEAL MANAGEMENT (MANAGE CATALOG & ADD NEW MEAL) */}
       {/* ========================================================= */}
       {activeTab === 'meals' && (
         <div className="space-y-8">
@@ -976,6 +1237,270 @@ const AdminDashboard = () => {
                 <button
                   type="submit"
                   className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-sm transition-colors shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* ADD DELIVERY PERSONNEL MODAL */}
+      {/* ========================================================= */}
+      {isAddDeliveryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-purple-100 text-purple-700 rounded-xl">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-extrabold text-gray-900">Add New Delivery Personnel</h3>
+              </div>
+              <button
+                onClick={() => setIsAddDeliveryModalOpen(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddDeliverySubmit} className="space-y-4 pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. John Miller"
+                    value={delName}
+                    onChange={(e) => setDelName(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Username *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. john_driver"
+                    value={delUsername}
+                    onChange={(e) => setDelUsername(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Email *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="john@nutriapp.com"
+                    value={delEmail}
+                    onChange={(e) => setDelEmail(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    placeholder="+91 9876543210"
+                    value={delPhone}
+                    onChange={(e) => setDelPhone(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Password *</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={delPassword}
+                    onChange={(e) => setDelPassword(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Confirm Password *</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={delConfirmPassword}
+                    onChange={(e) => setDelConfirmPassword(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Vehicle Type</label>
+                  <select
+                    value={delVehicleType}
+                    onChange={(e) => setDelVehicleType(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                  >
+                    <option value="Bike">Bike 🛵</option>
+                    <option value="Scooter">Scooter 🛵</option>
+                    <option value="Car">Car 🚗</option>
+                    <option value="Bicycle">Bicycle 🚲</option>
+                    <option value="None">None</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Vehicle Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. MH-12-AB-1234"
+                    value={delVehicleNumber}
+                    onChange={(e) => setDelVehicleNumber(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Emergency Contact Number</label>
+                <input
+                  type="tel"
+                  placeholder="+91 9123456789"
+                  value={delEmergencyContact}
+                  onChange={(e) => setDelEmergencyContact(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none focus:border-purple-400"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddDeliveryModalOpen(false)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-purple-600 text-white font-bold rounded-xl text-xs hover:bg-purple-700 transition-colors shadow-md"
+                >
+                  Create Account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* EDIT DELIVERY PERSONNEL MODAL */}
+      {/* ========================================================= */}
+      {editingDeliveryUser && (
+        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <h3 className="text-lg font-extrabold text-gray-900">Edit Delivery Personnel</h3>
+              <button
+                onClick={() => setEditingDeliveryUser(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditDeliverySubmit} className="space-y-4 pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={editingDeliveryUser.name || ''}
+                    onChange={(e) => setEditingDeliveryUser((prev) => ({ ...prev, name: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editingDeliveryUser.phone || ''}
+                    onChange={(e) => setEditingDeliveryUser((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Vehicle Type</label>
+                  <select
+                    value={editingDeliveryUser.vehicleType || 'Bike'}
+                    onChange={(e) => setEditingDeliveryUser((prev) => ({ ...prev, vehicleType: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none"
+                  >
+                    <option value="Bike">Bike 🛵</option>
+                    <option value="Scooter">Scooter 🛵</option>
+                    <option value="Car">Car 🚗</option>
+                    <option value="Bicycle">Bicycle 🚲</option>
+                    <option value="None">None</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Vehicle Number</label>
+                  <input
+                    type="text"
+                    value={editingDeliveryUser.vehicleNumber || ''}
+                    onChange={(e) => setEditingDeliveryUser((prev) => ({ ...prev, vehicleNumber: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Emergency Contact Number</label>
+                <input
+                  type="text"
+                  value={editingDeliveryUser.emergencyContact || ''}
+                  onChange={(e) => setEditingDeliveryUser((prev) => ({ ...prev, emergencyContact: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Reset Password (Optional)</label>
+                <input
+                  type="password"
+                  placeholder="Leave blank to keep unchanged"
+                  onChange={(e) => setEditingDeliveryUser((prev) => ({ ...prev, password: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-medium outline-none"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingDeliveryUser(null)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-purple-600 text-white font-bold rounded-xl text-xs shadow-md"
                 >
                   Save Changes
                 </button>

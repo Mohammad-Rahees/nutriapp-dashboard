@@ -7,16 +7,26 @@ import { ShoppingBag, CheckCircle2, Clock, PackageCheck, Truck, Calendar, Shield
 
 const Order = () => {
   const { 
-    cartItems, removeFromCart, addToCart, clearCart, 
+    user, setRoute, cartItems, removeFromCart, addToCart, clearCart, 
     startRazorpayCheckout, retryRazorpayCheckout, customerOrders, fetchCustomerOrders 
   } = useStore();
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
+  const [profileAlert, setProfileAlert] = useState(false);
 
   useEffect(() => {
     fetchCustomerOrders();
   }, [fetchCustomerOrders]);
 
   const handlePlaceOrder = async () => {
+    // Check if customer delivery profile is completed
+    const hasAddress = user?.address && user.address.trim().length > 0;
+    const hasPhone = user?.phone && user.phone.trim().length > 0;
+
+    if (!user?.profileCompleted && (!hasAddress || !hasPhone)) {
+      setProfileAlert(true);
+      return;
+    }
+
     if (cartItems.length > 0) {
       await startRazorpayCheckout();
     }
@@ -30,6 +40,29 @@ const Order = () => {
 
   return (
     <PageLayout>
+      {/* Profile Completion Warning Banner */}
+      {(!user?.profileCompleted || profileAlert) && (
+        <div className="mb-6 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-orange-500/10 border border-amber-300/80 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-md">
+              !
+            </div>
+            <div>
+              <h3 className="font-extrabold text-amber-900 text-base">Complete Delivery Address Required</h3>
+              <p className="text-xs text-amber-800 font-medium mt-0.5">
+                Please complete your delivery address and phone number before placing an order.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setRoute('profile')}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-md self-start sm:self-auto flex items-center gap-1.5"
+          >
+            Complete Address Profile ➔
+          </button>
+        </div>
+      )}
+
       <div className="mb-6 lg:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Order Details & Cart</h1>

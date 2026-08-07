@@ -31,6 +31,8 @@ const ProfileSettings = () => {
     weight: '70',
     goal: 'Maintain Weight',
     activityLevel: 'Moderately Active',
+    latitude: '',
+    longitude: '',
   });
 
   const [avatarPreview, setAvatarPreview] = useState('');
@@ -57,6 +59,8 @@ const ProfileSettings = () => {
         weight: user.weight !== undefined ? String(user.weight) : '70',
         goal: user.goal || 'Maintain Weight',
         activityLevel: user.activityLevel || 'Moderately Active',
+        latitude: user.latitude ? String(user.latitude) : '',
+        longitude: user.longitude ? String(user.longitude) : '',
       });
       setAvatarPreview(user.avatar || '');
     }
@@ -118,6 +122,37 @@ const ProfileSettings = () => {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // Browser Geolocation API Handler
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setNotification({ type: 'error', message: 'Geolocation is not supported by your browser.' });
+      return;
+    }
+    setNotification({ type: 'success', message: 'Fetching GPS location...' });
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData((prev) => ({
+          ...prev,
+          latitude: String(latitude),
+          longitude: String(longitude),
+        }));
+        setNotification({
+          type: 'success',
+          message: `GPS Coordinates captured! (Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)})`,
+        });
+        setTimeout(() => setNotification(null), 4000);
+      },
+      (err) => {
+        setNotification({
+          type: 'error',
+          message: 'Unable to retrieve location. Please check browser permissions.',
+        });
+        setTimeout(() => setNotification(null), 4000);
+      }
+    );
+  };
+
   // Save changes to MongoDB Users collection
   const handleSave = async (e) => {
     if (e) e.preventDefault();
@@ -128,6 +163,8 @@ const ProfileSettings = () => {
       avatar: avatarPreview,
       height: Number(formData.height) || 170,
       weight: Number(formData.weight) || 70,
+      latitude: formData.latitude ? Number(formData.latitude) : null,
+      longitude: formData.longitude ? Number(formData.longitude) : null,
     };
 
     const res = await updateUserProfile(profilePayload);
@@ -171,7 +208,37 @@ const ProfileSettings = () => {
         </button>
       </div>
 
-      {/* Toast Alert Notification */}
+      {/* Profile Completion Status Banner */}
+      {!user?.profileCompleted && (
+        <div className="mb-6 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-orange-500/10 border border-amber-300/80 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-md">
+              !
+            </div>
+            <div>
+              <h3 className="font-extrabold text-amber-900 text-base">Incomplete Delivery Profile</h3>
+              <p className="text-xs text-amber-800 font-medium mt-0.5">
+                Please complete your Full Name, Phone Number, and Delivery Address below to enable order placement.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-black bg-amber-500 text-white px-4 py-2 rounded-xl text-center self-start sm:self-auto shadow-xs uppercase tracking-wider">
+            Required for Delivery
+          </span>
+        </div>
+      )}
+
+      {user?.profileCompleted && (
+        <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-3xl p-4 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <span className="text-xs font-extrabold text-emerald-900">
+              Delivery Profile Status: Complete & Verified ✅
+            </span>
+          </div>
+          <span className="text-xs text-emerald-700 font-bold">Ready to Order</span>
+        </div>
+      )}
       {notification && (
         <div
           className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-md animate-in fade-in slide-in-from-top-3 ${
@@ -366,6 +433,28 @@ const ProfileSettings = () => {
                   onChange={handleChange} 
                   placeholder="e.g. 400001" 
                 />
+              </div>
+
+              <div className="sm:col-span-2 pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-purple-600" />
+                    GPS Delivery Location
+                  </span>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {formData.latitude && formData.longitude 
+                      ? `Coordinates set: Lat ${Number(formData.latitude).toFixed(4)}, Lng ${Number(formData.longitude).toFixed(4)}`
+                      : 'No coordinates set. Click to capture current GPS location.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold px-4 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                  <MapPin className="w-4 h-4 text-purple-600" />
+                  Set Current Location
+                </button>
               </div>
             </div>
           </ProfileFormSection>

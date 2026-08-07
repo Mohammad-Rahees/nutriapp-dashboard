@@ -5,30 +5,59 @@ const bcrypt = require("bcryptjs");
 // Helper to ensure default Admin exists in MongoDB
 const seedAdminIfNeeded = async () => {
   try {
-    let admin = await User.findOne({ username: "admin" });
-    let needsRecreation = false;
+    const adminUsername = (process.env.ADMIN_USERNAME || "admin").trim().toLowerCase();
+    const adminEmail = (process.env.ADMIN_EMAIL || "admin@nutriapp.com").trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD || "admin";
+    const adminName = process.env.ADMIN_NAME || "Admin User";
 
-    if (admin) {
-      const isMatch = await admin.matchPassword("admin");
-      if (!isMatch || admin.role !== "Admin") {
-        await User.deleteOne({ _id: admin._id });
-        needsRecreation = true;
-      }
-    }
+    let admin = await User.findOne({
+      $or: [{ username: adminUsername }, { email: adminEmail }],
+    });
 
-    if (!admin || needsRecreation) {
+    if (!admin) {
       admin = await User.create({
-        name: "Admin User",
-        username: "admin",
-        email: "admin@nutriapp.com",
-        password: "admin",
+        name: adminName,
+        username: adminUsername,
+        email: adminEmail,
+        password: adminPassword,
         role: "Admin",
       });
-      console.log("✅ Seeded permanent Admin user (admin/admin) into MongoDB");
+      console.log(`✅ Seeded Admin user (${adminUsername}) into MongoDB`);
     }
     return admin;
   } catch (err) {
     console.error("Error seeding Admin user:", err);
+  }
+};
+
+// Helper to ensure default Delivery user exists in MongoDB
+const seedDeliveryIfNeeded = async () => {
+  try {
+    let deliveryUser = await User.findOne({ username: "delivery" });
+    let needsRecreation = false;
+
+    if (deliveryUser) {
+      const isMatch = await deliveryUser.matchPassword("delivery");
+      if (!isMatch || deliveryUser.role !== "Delivery") {
+        await User.deleteOne({ _id: deliveryUser._id });
+        needsRecreation = true;
+      }
+    }
+
+    if (!deliveryUser || needsRecreation) {
+      deliveryUser = await User.create({
+        name: "Delivery Express",
+        username: "delivery",
+        email: "delivery@nutriapp.com",
+        password: "delivery",
+        role: "Delivery",
+        phone: "+91 9876543210",
+      });
+      console.log("✅ Seeded permanent Delivery user (delivery/delivery) into MongoDB");
+    }
+    return deliveryUser;
+  } catch (err) {
+    console.error("Error seeding Delivery user:", err);
   }
 };
 
@@ -110,11 +139,6 @@ const loginUser = async (req, res, next) => {
       throw new Error("Please provide username/email and password");
     }
 
-    // Auto-seed admin user if login attempt is admin/admin
-    if (identifier === "admin" && password === "admin") {
-      await seedAdminIfNeeded();
-    }
-
     // Find user by email, username, or name
     let user = await User.findOne({
       $or: [
@@ -194,6 +218,18 @@ const updateUserProfile = async (req, res, next) => {
     user.weight = req.body.weight !== undefined ? Number(req.body.weight) : user.weight;
     user.goal = req.body.goal !== undefined ? req.body.goal : user.goal;
     user.activityLevel = req.body.activityLevel !== undefined ? req.body.activityLevel : user.activityLevel;
+    user.latitude = req.body.latitude !== undefined ? Number(req.body.latitude) : user.latitude;
+    user.longitude = req.body.longitude !== undefined ? Number(req.body.longitude) : user.longitude;
+
+    // Check if mandatory delivery profile fields are completed
+    const hasName = user.name && user.name.trim().length > 0;
+    const hasPhone = user.phone && user.phone.trim().length > 0;
+    const hasAddress = user.address && user.address.trim().length > 0;
+    const hasCity = user.city && user.city.trim().length > 0;
+    const hasState = user.state && user.state.trim().length > 0;
+    const hasPostal = user.postalCode && user.postalCode.trim().length > 0;
+
+    user.profileCompleted = Boolean(hasName && hasPhone && hasAddress && hasCity && hasState && hasPostal);
 
     const updatedUser = await user.save();
     console.log("✅ User profile updated in MongoDB:", updatedUser._id);
@@ -217,4 +253,5 @@ module.exports = {
   getMe,
   updateUserProfile,
   seedAdminIfNeeded,
+  seedDeliveryIfNeeded,
 };

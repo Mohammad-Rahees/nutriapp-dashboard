@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["Customer", "Admin", "user", "admin"],
+      enum: ["Customer", "Admin", "Delivery", "user", "admin", "delivery"],
       default: "Customer",
     },
     age: {
@@ -114,6 +114,35 @@ const userSchema = new mongoose.Schema(
     bio: {
       type: String,
       default: "",
+    },
+    vehicleType: {
+      type: String,
+      enum: ["Bike", "Scooter", "Car", "Bicycle", "None"],
+      default: "None",
+    },
+    vehicleNumber: {
+      type: String,
+      default: "",
+    },
+    emergencyContact: {
+      type: String,
+      default: "",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    profileCompleted: {
+      type: Boolean,
+      default: false,
+    },
+    latitude: {
+      type: Number,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
     },
   },
   {
