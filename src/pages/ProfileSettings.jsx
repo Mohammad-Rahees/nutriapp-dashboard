@@ -173,7 +173,7 @@ const ProfileSettings = () => {
     if (res.success) {
       setNotification({
         type: 'success',
-        message: 'Profile settings updated successfully in MongoDB!',
+        message: 'Profile settings updated successfully!',
       });
       setTimeout(() => setNotification(null), 4000);
     } else {

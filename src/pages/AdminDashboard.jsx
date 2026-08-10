@@ -6,18 +6,20 @@ import useStore from '../store/useStore';
 import { 
   PlusCircle, Upload, CheckCircle2, AlertCircle, ShieldAlert, Utensils,
   ShoppingBag, Clock, PackageCheck, Truck, DollarSign, Search, Filter, ArrowUpDown,
-  CreditCard, User, Mail, Calendar, Edit3, Trash2, X, Eye
+  CreditCard, User, Mail, Calendar, Edit3, Trash2, X, Eye, ListOrdered, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import DeliveryDetailModal from '../components/delivery/DeliveryDetailModal';
 
 const AdminDashboard = () => {
   const { 
     user, meals, categories, addMeal, updateMeal, deleteMeal, 
     adminOrders, fetchAdminOrders, updateOrderStatus, setRoute,
     deliveryUsers, fetchDeliveryUsers, assignDeliveryPerson,
-    createDeliveryUser, updateUserById, deleteUserAccount
+    createDeliveryUser, updateUserById, deleteUserAccount,
+    adminLogs, adminLogsPagination, fetchAdminDeliveryLogs
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'delivery' | 'meals'
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'delivery' | 'meals' | 'logs'
   const [mealSubTab, setMealSubTab] = useState('manage'); // 'manage' | 'add'
 
   // Edit Meal Modal State
@@ -38,11 +40,38 @@ const AdminDashboard = () => {
   const [delVehicleNumber, setDelVehicleNumber] = useState('');
   const [delEmergencyContact, setDelEmergencyContact] = useState('');
 
+  // Admin Delivery Activity Logs State
+  const [logDeliveryPersonFilter, setLogDeliveryPersonFilter] = useState('ALL');
+  const [logDateRangeFilter, setLogDateRangeFilter] = useState('ALL');
+  const [logStartDate, setLogStartDate] = useState('');
+  const [logEndDate, setLogEndDate] = useState('');
+  const [logSearch, setLogSearch] = useState('');
+  const [logStatusFilter, setLogStatusFilter] = useState('ALL');
+  const [logPage, setLogPage] = useState(1);
+  const [selectedLogForModal, setSelectedLogForModal] = useState(null);
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+
   // Fetch admin orders & delivery users on mount
   useEffect(() => {
     fetchAdminOrders();
     fetchDeliveryUsers();
   }, [fetchAdminOrders, fetchDeliveryUsers]);
+
+  // Fetch admin delivery logs when filters or logs tab active
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      fetchAdminDeliveryLogs({
+        deliveryPerson: logDeliveryPersonFilter,
+        search: logSearch,
+        status: logStatusFilter,
+        dateRange: logDateRangeFilter,
+        startDate: logStartDate,
+        endDate: logEndDate,
+        page: logPage,
+        limit: 10,
+      });
+    }
+  }, [activeTab, logDeliveryPersonFilter, logSearch, logStatusFilter, logDateRangeFilter, logStartDate, logEndDate, logPage]);
 
   // Form State (Add New Meal)
   const [title, setTitle] = useState('');
@@ -277,7 +306,7 @@ const AdminDashboard = () => {
     if (res.success) {
       setNotification({
         type: 'success',
-        message: `Meal "${editingMeal.title}" updated successfully in MongoDB!`,
+        message: `Meal "${editingMeal.title}" updated successfully!`,
       });
       setEditingMeal(null);
       setTimeout(() => setNotification(null), 4000);
@@ -337,7 +366,7 @@ const AdminDashboard = () => {
       image: imagePreview,
     });
 
-    setNotification({ type: 'success', message: `Meal "${title}" saved successfully to MongoDB!` });
+    setNotification({ type: 'success', message: `Meal "${title}" saved successfully!` });
 
     // Reset Form
     setTitle('');
@@ -420,6 +449,17 @@ const AdminDashboard = () => {
           >
             <Utensils className="w-4 h-4" />
             Meals Catalog ({meals.length})
+          </button>
+          <button
+            onClick={() => { setActiveTab('logs'); setLogPage(1); }}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center gap-2 ${
+              activeTab === 'logs'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-gray-600 hover:text-purple-600'
+            }`}
+          >
+            <ListOrdered className="w-4 h-4" />
+            Delivery Activity Logs
           </button>
         </div>
       </div>
@@ -1129,6 +1169,233 @@ const AdminDashboard = () => {
           )}
         </div>
       )}
+
+      {/* ========================================================= */}
+      {/* TAB 4: DELIVERY ACTIVITY LOGS (ADMIN MONITORING) */}
+      {/* ========================================================= */}
+      {activeTab === 'logs' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <SectionHeader title="Delivery Activity Audit Logs" />
+              <p className="text-gray-400 text-xs mt-1">Monitor all delivery personnel activity logs and delivery workflow timestamps in real time.</p>
+            </div>
+
+            <button
+              onClick={() => fetchAdminDeliveryLogs({
+                deliveryPerson: logDeliveryPersonFilter,
+                search: logSearch,
+                status: logStatusFilter,
+                dateRange: logDateRangeFilter,
+                startDate: logStartDate,
+                endDate: logEndDate,
+                page: logPage,
+                limit: 10,
+              })}
+              className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold px-4 py-2 rounded-xl text-xs border border-purple-200 transition-all flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <Clock className="w-4 h-4" /> Refresh Audit Logs
+            </button>
+          </div>
+
+          {/* Admin Log Filters */}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Delivery Person Filter */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Delivery Agent</label>
+                <select
+                  value={logDeliveryPersonFilter}
+                  onChange={(e) => { setLogDeliveryPersonFilter(e.target.value); setLogPage(1); }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-purple-400"
+                >
+                  <option value="ALL">All Delivery Personnel</option>
+                  {deliveryUsers.map((u) => (
+                    <option key={u._id} value={u._id}>{u.name || u.username} ({u.vehicleType || 'Agent'})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date Range Filter */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Date Range</label>
+                <select
+                  value={logDateRangeFilter}
+                  onChange={(e) => { setLogDateRangeFilter(e.target.value); setLogPage(1); }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-purple-400"
+                >
+                  <option value="ALL">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="last7">Last 7 Days</option>
+                  <option value="last30">Last 30 Days</option>
+                  <option value="custom">Custom Date Range</option>
+                </select>
+              </div>
+
+              {/* Search Filter */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Search Order / Customer</label>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Order ID, Customer Name, Phone..."
+                    value={logSearch}
+                    onChange={(e) => setLogSearch(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-purple-400"
+                  />
+                </div>
+              </div>
+
+              {/* Delivery Status Filter */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Status</label>
+                <select
+                  value={logStatusFilter}
+                  onChange={(e) => { setLogStatusFilter(e.target.value); setLogPage(1); }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-purple-400"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="Assigned">Assigned</option>
+                  <option value="Picked Up">Picked Up</option>
+                  <option value="Out for Delivery">Out for Delivery</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Failed Delivery">Failed Delivery</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Custom Range Input fields */}
+            {logDateRangeFilter === 'custom' && (
+              <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row items-center gap-3">
+                <div className="w-full sm:w-auto">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={logStartDate}
+                    onChange={(e) => setLogStartDate(e.target.value)}
+                    className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none"
+                  />
+                </div>
+                <div className="w-full sm:w-auto">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={logEndDate}
+                    onChange={(e) => setLogEndDate(e.target.value)}
+                    className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Admin Logs Table */}
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            {adminLogs.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-gray-400 text-sm italic">No delivery activity logs found matching current filter criteria.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-400 font-extrabold uppercase tracking-wider border-b border-gray-100">
+                    <tr>
+                      <th className="py-3.5 px-4">Time</th>
+                      <th className="py-3.5 px-4">Delivery Agent</th>
+                      <th className="py-3.5 px-4">Order ID</th>
+                      <th className="py-3.5 px-4">Customer</th>
+                      <th className="py-3.5 px-4">Action Performed</th>
+                      <th className="py-3.5 px-4">Current Status</th>
+                      <th className="py-3.5 px-4 text-right">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                    {adminLogs.map((log) => {
+                      const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                      const dateStr = new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                      const delAgentName = log.deliveryPerson?.name || log.deliveryPerson?.username || 'Agent';
+                      const orderIdShort = log.order?._id
+                        ? String(log.order._id).substring(String(log.order._id).length - 8).toUpperCase()
+                        : 'ORD-N/A';
+
+                      return (
+                        <tr key={log._id} className="hover:bg-purple-50/50 transition-all">
+                          <td className="py-3.5 px-4 font-mono">
+                            <p className="font-bold text-gray-900">{timeStr}</p>
+                            <p className="text-[10px] text-gray-400">{dateStr}</p>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <p className="font-bold text-purple-900">{delAgentName}</p>
+                            <p className="text-[10px] text-purple-600 font-semibold">{log.deliveryPerson?.vehicleType || 'Agent'}</p>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-purple-700">
+                            #{orderIdShort}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <p className="font-bold text-gray-900">{log.customerName || 'Customer'}</p>
+                            <p className="text-[11px] text-gray-400">{log.customerPhone || 'N/A'}</p>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 inline-block">
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-lg">
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              onClick={() => { setSelectedLogForModal(log); setIsLogModalOpen(true); }}
+                              className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold px-3 py-1.5 rounded-xl border border-purple-200 transition-all inline-flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> View Log
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {adminLogsPagination?.totalPages > 1 && (
+              <div className="bg-gray-50 px-6 py-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                <span className="font-semibold text-gray-500">
+                  Page {adminLogsPagination.page} of {adminLogsPagination.totalPages} ({adminLogsPagination.total} audit logs)
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={logPage <= 1}
+                    onClick={() => setLogPage((p) => Math.max(p - 1, 1))}
+                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-bold disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                  </button>
+                  <button
+                    disabled={logPage >= adminLogsPagination.totalPages}
+                    onClick={() => setLogPage((p) => Math.min(p + 1, adminLogsPagination.totalPages))}
+                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-bold disabled:opacity-50 flex items-center gap-1"
+                  >
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Detail Modal for Admin View */}
+      <DeliveryDetailModal
+        isOpen={isLogModalOpen}
+        onClose={() => setIsLogModalOpen(false)}
+        log={selectedLogForModal}
+      />
 
       {/* ========================================================= */}
       {/* EDIT MEAL MODAL DIALOG */}

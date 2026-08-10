@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed:admin": "node seeders/seedAdmin.js"
+    "seed:admin": "node seeders/seedAdmin.js",
+    "migrate:images": "node scripts/migrateImagesToCloudinary.js"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +14,7 @@
   "description": "",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^1.41.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -20,6 +22,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.8.0",
     "morgan": "^1.11.0",
+    "multer": "^1.4.5-lts.1",
+    "multer-storage-cloudinary": "^4.0.0",
     "razorpay": "^2.9.8"
   },
   "devDependencies": {

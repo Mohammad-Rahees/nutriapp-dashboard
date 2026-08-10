@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 const bcrypt = require("bcryptjs");
+const { uploadToCloudinary } = require("../utils/cloudinaryHelper");
 
 // Helper to ensure default Admin exists in MongoDB
 const seedAdminIfNeeded = async () => {
@@ -22,7 +23,6 @@ const seedAdminIfNeeded = async () => {
         password: adminPassword,
         role: "Admin",
       });
-      console.log(`✅ Seeded Admin user (${adminUsername}) into MongoDB`);
     }
     return admin;
   } catch (err) {
@@ -53,7 +53,6 @@ const seedDeliveryIfNeeded = async () => {
         role: "Delivery",
         phone: "+91 9876543210",
       });
-      console.log("✅ Seeded permanent Delivery user (delivery/delivery) into MongoDB");
     }
     return deliveryUser;
   } catch (err) {
@@ -211,7 +210,9 @@ const updateUserProfile = async (req, res, next) => {
     user.state = req.body.state !== undefined ? req.body.state : user.state;
     user.country = req.body.country !== undefined ? req.body.country : user.country;
     user.postalCode = req.body.postalCode !== undefined ? req.body.postalCode : user.postalCode;
-    user.avatar = req.body.avatar !== undefined ? req.body.avatar : user.avatar;
+    if (req.body.avatar !== undefined) {
+      user.avatar = await uploadToCloudinary(req.body.avatar, "nutriapp/users");
+    }
     user.bio = req.body.bio !== undefined ? req.body.bio : user.bio;
     user.age = req.body.age !== undefined ? Number(req.body.age) : user.age;
     user.height = req.body.height !== undefined ? Number(req.body.height) : user.height;
@@ -232,7 +233,6 @@ const updateUserProfile = async (req, res, next) => {
     user.profileCompleted = Boolean(hasName && hasPhone && hasAddress && hasCity && hasState && hasPostal);
 
     const updatedUser = await user.save();
-    console.log("✅ User profile updated in MongoDB:", updatedUser._id);
 
     const userObj = updatedUser.toObject();
     delete userObj.password;

@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 
-const BASE_URL = 'http://localhost:5000/api';
+const getBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return 'http://localhost:5000/api';
+  const cleanUrl = envUrl.replace(/\/+$/, '');
+  return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
+};
+
+const BASE_URL = getBaseUrl();
 
 const useStore = create((set, get) => ({
   isAuthenticated: false,
@@ -13,6 +20,13 @@ const useStore = create((set, get) => ({
   customerOrders: [],
   deliveryOrders: [],
   deliveryUsers: [],
+  deliveryStats: { todayOrders: 0, deliveredToday: 0, failedToday: 0, activeDeliveries: 0 },
+  deliveryHistory: [],
+  deliveryLogs: [],
+  adminLogs: [],
+  historyPagination: { total: 0, page: 1, limit: 10, totalPages: 1 },
+  myLogsPagination: { total: 0, page: 1, limit: 10, totalPages: 1 },
+  adminLogsPagination: { total: 0, page: 1, limit: 10, totalPages: 1 },
   latestOrder: null,
   paymentError: '',
   selectedRecipe: null,
@@ -173,6 +187,114 @@ const useStore = create((set, get) => ({
       }
     } catch (err) {
       console.warn('Could not fetch delivery orders from MongoDB:', err);
+    }
+  },
+
+  // Fetch dynamic statistics for delivery person dashboard
+  fetchDeliveryStats: async () => {
+    const user = get().user;
+    if (!user?.token) return;
+    try {
+      const res = await fetch(`${BASE_URL}/delivery-logs/stats`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set({ deliveryStats: data });
+      }
+    } catch (err) {
+      console.warn('Could not fetch delivery stats:', err);
+    }
+  },
+
+  // Fetch paginated delivery history with search & filters
+  fetchDeliveryHistory: async (params = {}) => {
+    const user = get().user;
+    if (!user?.token) return;
+    const { search = '', status = 'ALL', paymentStatus = 'ALL', dateRange = 'ALL', page = 1, limit = 10 } = params;
+    try {
+      const queryParams = new URLSearchParams({
+        search,
+        status,
+        paymentStatus,
+        dateRange,
+        page: String(page),
+        limit: String(limit),
+      }).toString();
+
+      const res = await fetch(`${BASE_URL}/delivery-logs/history?${queryParams}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set({
+          deliveryHistory: data.orders || [],
+          historyPagination: data.pagination || { total: 0, page: 1, limit: 10, totalPages: 1 },
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch delivery history:', err);
+    }
+  },
+
+  // Fetch paginated personal daily activity logs for delivery person
+  fetchDeliveryLogs: async (params = {}) => {
+    const user = get().user;
+    if (!user?.token) return;
+    const { search = '', status = 'ALL', dateRange = 'ALL', page = 1, limit = 10 } = params;
+    try {
+      const queryParams = new URLSearchParams({
+        search,
+        status,
+        dateRange,
+        page: String(page),
+        limit: String(limit),
+      }).toString();
+
+      const res = await fetch(`${BASE_URL}/delivery-logs/my-logs?${queryParams}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set({
+          deliveryLogs: data.logs || [],
+          myLogsPagination: data.pagination || { total: 0, page: 1, limit: 10, totalPages: 1 },
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch delivery logs:', err);
+    }
+  },
+
+  // Fetch paginated delivery activity logs for Admin Monitoring
+  fetchAdminDeliveryLogs: async (params = {}) => {
+    const user = get().user;
+    if (!user?.token) return;
+    const { deliveryPerson = 'ALL', search = '', status = 'ALL', dateRange = 'ALL', startDate = '', endDate = '', page = 1, limit = 10 } = params;
+    try {
+      const queryParams = new URLSearchParams({
+        deliveryPerson: deliveryPerson === 'ALL' ? '' : deliveryPerson,
+        search,
+        status,
+        dateRange,
+        startDate,
+        endDate,
+        page: String(page),
+        limit: String(limit),
+      }).toString();
+
+      const res = await fetch(`${BASE_URL}/delivery-logs/admin?${queryParams}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set({
+          adminLogs: data.logs || [],
+          adminLogsPagination: data.pagination || { total: 0, page: 1, limit: 10, totalPages: 1 },
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch admin delivery logs:', err);
     }
   },
 
@@ -627,8 +749,7 @@ const useStore = create((set, get) => ({
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        const savedOrder = await res.json();
-        console.log('✅ Order placed and saved in MongoDB:', savedOrder);
+        await res.json();
         get().clearCart();
         return true;
       }

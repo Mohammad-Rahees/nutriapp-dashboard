@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const User = require("../models/User");
+const DeliveryLog = require("../models/DeliveryLog");
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -58,7 +59,6 @@ const createOrder = async (req, res, next) => {
     });
 
     const createdOrder = await order.save();
-    console.log("✅ Order saved successfully into MongoDB orders collection:", createdOrder._id);
     res.status(201).json(createdOrder);
   } catch (error) {
     console.error("❌ Error creating order in MongoDB:", error);
@@ -124,7 +124,6 @@ const updateOrderStatus = async (req, res, next) => {
     await updatedOrder.populate("user", "name username email phone address role");
     await updatedOrder.populate("deliveryPerson", "name username email phone role");
 
-    console.log(`✅ Order ${id} status updated to: ${status}`);
     res.json(updatedOrder);
   } catch (error) {
     next(error);
@@ -145,7 +144,13 @@ const assignDeliveryPerson = async (req, res, next) => {
       throw new Error("Order not found");
     }
 
+    const previousDeliveryPerson = order.deliveryPerson;
+    let isReassignment = false;
+
     if (deliveryPersonId && mongoose.Types.ObjectId.isValid(deliveryPersonId)) {
+      if (previousDeliveryPerson && previousDeliveryPerson.toString() !== deliveryPersonId.toString()) {
+        isReassignment = true;
+      }
       order.deliveryPerson = deliveryPersonId;
       order.deliveryStatus = "Assigned";
       order.assignedAt = new Date();
@@ -169,7 +174,29 @@ const assignDeliveryPerson = async (req, res, next) => {
     await updatedOrder.populate("user", "name username email phone address role");
     await updatedOrder.populate("deliveryPerson", "name username email phone role");
 
-    console.log(`✅ Order ${id} assigned to delivery person: ${deliveryPersonId}`);
+    // Automatically create DeliveryLog entry
+    if (deliveryPersonId && mongoose.Types.ObjectId.isValid(deliveryPersonId)) {
+      const customerName = updatedOrder.user?.name || updatedOrder.user?.username || "Customer";
+      const customerPhone = updatedOrder.deliveryPhone || updatedOrder.user?.phone || "";
+      const address = updatedOrder.deliveryAddress || "";
+
+      await DeliveryLog.create({
+        order: updatedOrder._id,
+        deliveryPerson: updatedOrder.deliveryPerson._id || deliveryPersonId,
+        customer: updatedOrder.user?._id || null,
+        customerName,
+        customerPhone,
+        deliveryAddress: address,
+        action: isReassignment ? "Order Reassigned" : "Order Assigned",
+        status: "Assigned",
+        timestamp: new Date(),
+        details: {
+          totalAmount: updatedOrder.totalAmount,
+          estimatedDeliveryTime: updatedOrder.estimatedDeliveryTime,
+        },
+      });
+    }
+
     res.json(updatedOrder);
   } catch (error) {
     console.error("❌ Error assigning delivery person:", error);
@@ -205,20 +232,32 @@ const updateDeliveryStatus = async (req, res, next) => {
       }
     }
 
+    const previousStatus = order.deliveryStatus;
+    const now = new Date();
+
     if (deliveryStatus) {
       order.deliveryStatus = deliveryStatus;
-      if (deliveryStatus === "Delivered") {
-        order.status = "Delivered";
-        order.deliveredAt = new Date();
+      if (deliveryStatus === "Picked Up") {
+        order.pickedUpAt = now;
       } else if (deliveryStatus === "Out for Delivery") {
+        order.outForDeliveryAt = now;
         order.status = "In Transit";
+      } else if (deliveryStatus === "Delivered") {
+        order.deliveredAt = now;
+        order.status = "Delivered";
+      } else if (deliveryStatus === "Failed Delivery") {
+        order.failedAt = now;
       }
     }
 
+    const wasPaymentCollectedBefore = order.paymentCollected;
     if (paymentCollected !== undefined) {
       order.paymentCollected = Boolean(paymentCollected);
       if (order.paymentCollected) {
         order.paymentStatus = "Paid";
+        if (!wasPaymentCollectedBefore) {
+          order.codCollectedAt = now;
+        }
       }
     }
 
@@ -226,7 +265,54 @@ const updateDeliveryStatus = async (req, res, next) => {
     await updatedOrder.populate("user", "name username email phone address role");
     await updatedOrder.populate("deliveryPerson", "name username email phone role");
 
-    console.log(`✅ Order ${id} delivery status updated to: ${deliveryStatus || 'unchanged'}, paymentCollected: ${order.paymentCollected}`);
+    // Automatically create DeliveryLog entry
+    if (updatedOrder.deliveryPerson) {
+      const customerName = updatedOrder.user?.name || updatedOrder.user?.username || "Customer";
+      const customerPhone = updatedOrder.deliveryPhone || updatedOrder.user?.phone || "";
+      const address = updatedOrder.deliveryAddress || "";
+
+      if (deliveryStatus && deliveryStatus !== previousStatus) {
+        let actionName = deliveryStatus;
+        if (deliveryStatus === "Out for Delivery") actionName = "Out For Delivery";
+
+        await DeliveryLog.create({
+          order: updatedOrder._id,
+          deliveryPerson: updatedOrder.deliveryPerson._id || updatedOrder.deliveryPerson,
+          customer: updatedOrder.user?._id || null,
+          customerName,
+          customerPhone,
+          deliveryAddress: address,
+          action: actionName,
+          status: deliveryStatus,
+          timestamp: now,
+          details: {
+            totalAmount: updatedOrder.totalAmount,
+            paymentStatus: updatedOrder.paymentStatus,
+            paymentCollected: updatedOrder.paymentCollected,
+          },
+        });
+      }
+
+      if (paymentCollected !== undefined && Boolean(paymentCollected) && !wasPaymentCollectedBefore) {
+        await DeliveryLog.create({
+          order: updatedOrder._id,
+          deliveryPerson: updatedOrder.deliveryPerson._id || updatedOrder.deliveryPerson,
+          customer: updatedOrder.user?._id || null,
+          customerName,
+          customerPhone,
+          deliveryAddress: address,
+          action: "COD Payment Collected",
+          status: updatedOrder.deliveryStatus,
+          timestamp: now,
+          details: {
+            totalAmount: updatedOrder.totalAmount,
+            paymentStatus: "Paid",
+            paymentCollected: true,
+          },
+        });
+      }
+    }
+
     res.json(updatedOrder);
   } catch (error) {
     console.error("❌ Error updating delivery status:", error);

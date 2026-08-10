@@ -1,4 +1,5 @@
 const Food = require("../models/Food");
+const { uploadToCloudinary } = require("../utils/cloudinaryHelper");
 
 const initialFoodItems = [
   { name: 'Grilled Salmon & Quinoa', category: 'Dinner', image: 'https://images.unsplash.com/photo-1485921325833-c519f76c4927?w=800&q=80&auto=format&fit=crop', calories: 450, protein: 38, carbs: 42, fat: 14, servingSize: '1 bowl', time: '25 min', difficulty: 'Medium', price: 14.99 },
@@ -90,12 +91,15 @@ const createFood = async (req, res, next) => {
       throw new Error("Food name and calories are required");
     }
 
+    // Automatically convert image to Cloudinary URL if base64 or file path
+    const imageUrl = image ? await uploadToCloudinary(image, "nutriapp/meals") : "";
+
     const food = new Food({
       name: foodName,
       title: foodName,
       description: description || "",
       category: category || "Other",
-      image,
+      image: imageUrl,
       calories: Number(calories) || 0,
       protein: Number(protein) || 0,
       carbs: Number(carbs) || 0,
@@ -127,7 +131,11 @@ const updateFood = async (req, res, next) => {
       food.name = req.body.name || req.body.title || food.name;
       food.title = food.name;
       food.category = req.body.category || food.category;
-      food.image = req.body.image || food.image;
+      
+      if (req.body.image) {
+        food.image = await uploadToCloudinary(req.body.image, "nutriapp/meals");
+      }
+
       food.calories = req.body.calories !== undefined ? req.body.calories : food.calories;
       food.protein = req.body.protein !== undefined ? req.body.protein : food.protein;
       food.carbs = req.body.carbs !== undefined ? req.body.carbs : food.carbs;

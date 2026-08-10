@@ -54,12 +54,28 @@ const orderSchema = new mongoose.Schema(
     assignedAt: {
       type: Date,
     },
+    pickedUpAt: {
+      type: Date,
+    },
+    outForDeliveryAt: {
+      type: Date,
+    },
     deliveredAt: {
+      type: Date,
+    },
+    failedAt: {
+      type: Date,
+    },
+    codCollectedAt: {
       type: Date,
     },
     paymentCollected: {
       type: Boolean,
       default: false,
+    },
+    deliveryNotes: {
+      type: String,
+      default: "",
     },
     deliveryAddress: {
       type: String,

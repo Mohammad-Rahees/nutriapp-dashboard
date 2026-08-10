@@ -159,8 +159,6 @@ const verifyPayment = async (req, res, next) => {
       await cart.save();
     }
 
-    console.log("✅ Payment Verified & Order Created in MongoDB:", createdOrder._id);
-
     res.status(200).json({
       success: true,
       message: "Payment verified successfully",
@@ -266,8 +264,6 @@ const verifyRetryPayment = async (req, res, next) => {
 
     const updatedOrder = await order.save();
     await updatedOrder.populate("user", "name username email role");
-
-    console.log("✅ Retry Payment Verified & Order Updated in MongoDB:", updatedOrder._id);
 
     res.status(200).json({
       success: true,
