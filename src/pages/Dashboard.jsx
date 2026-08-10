@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import PageLayout from '../components/layout/PageLayout';
 import SectionHeader from '../components/ui/SectionHeader';
 import FoodCard from '../components/ui/FoodCard';
@@ -6,9 +6,14 @@ import useStore from '../store/useStore';
 import { SearchX, Filter } from 'lucide-react';
 
 const Dashboard = () => {
-  const { searchQuery, meals, user, setRoute } = useStore();
+  const { searchQuery, meals, user, setRoute, fetchMeals, fetchCategories } = useStore();
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeCommonFilter, setActiveCommonFilter] = useState('All');
+
+  useEffect(() => {
+    fetchMeals();
+    fetchCategories();
+  }, [fetchMeals, fetchCategories]);
 
   const categories = useMemo(() => {
     return ['All', ...Array.from(new Set(meals.map(i => i.category || 'Other')))];

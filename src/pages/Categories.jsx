@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import PageLayout from '../components/layout/PageLayout';
 import SectionHeader from '../components/ui/SectionHeader';
 import FoodCard from '../components/ui/FoodCard';
@@ -6,7 +6,11 @@ import useStore from '../store/useStore';
 import { SearchX } from 'lucide-react';
 
 const Categories = () => {
-  const { searchQuery, meals } = useStore();
+  const { searchQuery, meals, fetchMeals } = useStore();
+
+  useEffect(() => {
+    fetchMeals();
+  }, [fetchMeals]);
 
   const categoriesMap = useMemo(() => {
     // Collect all foods matching search query

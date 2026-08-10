@@ -344,7 +344,7 @@ const AdminDashboard = () => {
   };
 
   // Handle Submit Add Meal
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!title.trim() || !calories || !category) {
@@ -352,7 +352,7 @@ const AdminDashboard = () => {
       return;
     }
 
-    addMeal({
+    const res = await addMeal({
       title: title.trim(),
       description: description.trim(),
       calories: Number(calories),
@@ -366,20 +366,25 @@ const AdminDashboard = () => {
       image: imagePreview,
     });
 
-    setNotification({ type: 'success', message: `Meal "${title}" saved successfully!` });
+    if (res && res.success) {
+      setNotification({ type: 'success', message: `Meal "${title}" saved successfully to database!` });
 
-    // Reset Form
-    setTitle('');
-    setDescription('');
-    setCalories('');
-    setPrice('9.99');
-    setCategory('');
-    setProtein('');
-    setCarbs('');
-    setFat('');
-    setImagePreview('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80&auto=format&fit=crop');
+      // Reset Form
+      setTitle('');
+      setDescription('');
+      setCalories('');
+      setPrice('9.99');
+      setCategory('');
+      setProtein('');
+      setCarbs('');
+      setFat('');
+      setImagePreview('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80&auto=format&fit=crop');
 
-    setTimeout(() => setNotification(null), 4000);
+      setTimeout(() => setNotification(null), 4000);
+    } else {
+      setNotification({ type: 'error', message: `Failed to save meal "${title}" to database. ${res?.error || ''}` });
+      setTimeout(() => setNotification(null), 5000);
+    }
   };
 
   // Restrict Admin view if non-admin user somehow loaded this route

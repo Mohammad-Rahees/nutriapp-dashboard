@@ -18,7 +18,6 @@ const foodSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, "Category is required"],
-      enum: ["Breakfast", "Lunch", "Dinner", "Snack", "Vegan", "Dessert", "Beverage", "Other"],
       default: "Other",
     },
     calories: {

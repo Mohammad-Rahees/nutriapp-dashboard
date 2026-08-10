@@ -636,8 +636,6 @@ const useStore = create((set, get) => ({
       fat: Number(mealData.fat) || 0,
     };
 
-    let createdMeal = null;
-
     try {
       const res = await fetch(`${BASE_URL}/foods`, {
         method: 'POST',
@@ -647,27 +645,42 @@ const useStore = create((set, get) => ({
 
       if (res.ok) {
         const data = await res.json();
-        createdMeal = {
+        const createdMeal = {
           ...data,
-          id: data._id ? data._id.toString() : data.id,
-          title: data.title || data.name,
-          name: data.name || data.title,
+          id: data._id ? data._id.toString() : (data.id || Date.now().toString()),
+          title: data.title || data.name || payload.title,
+          name: data.name || data.title || payload.name,
+          description: data.description || payload.description,
+          category: data.category || payload.category,
+          image: data.image || payload.image,
+          calories: Number(data.calories) || payload.calories,
+          price: Number(data.price) || payload.price,
+          time: data.time || payload.time,
+          difficulty: data.difficulty || payload.difficulty,
+          protein: Number(data.protein) || payload.protein,
+          carbs: Number(data.carbs) || payload.carbs,
+          fat: Number(data.fat) || payload.fat,
         };
+
+        set((state) => ({
+          meals: [createdMeal, ...state.meals.filter((m) => String(m.id || m._id) !== String(createdMeal.id))],
+        }));
+
+        return { success: true, meal: createdMeal };
+      } else {
+        const errData = await res.json().catch(() => ({ message: 'Server returned error status ' + res.status }));
+        console.error('API error saving meal to backend DB:', errData);
+        return { success: false, error: errData.message || 'Server error ' + res.status };
       }
     } catch (err) {
       console.warn('API error saving meal to backend DB:', err);
+      // Local fallback for offline mode
+      const fallbackMeal = { id: Date.now().toString(), ...payload };
+      set((state) => ({
+        meals: [fallbackMeal, ...state.meals],
+      }));
+      return { success: true, meal: fallbackMeal, offline: true };
     }
-
-    if (!createdMeal) {
-      createdMeal = {
-        id: Date.now().toString(),
-        ...payload,
-      };
-    }
-
-    set((state) => ({
-      meals: [createdMeal, ...state.meals.filter((m) => String(m.id) !== String(createdMeal.id))],
-    }));
   },
 
   // Update meal in MongoDB `foods` collection

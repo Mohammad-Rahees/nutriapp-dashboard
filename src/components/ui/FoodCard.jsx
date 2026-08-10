@@ -2,7 +2,7 @@ import React from 'react';
 import { Heart, Clock, Flame, ShoppingCart, Plus, Minus } from 'lucide-react';
 import useStore from '../../store/useStore';
 
-const FoodCard = ({ id, title, name, image, calories, time, difficulty, price, category, description }) => {
+const FoodCard = ({ id, _id, title, name, image, calories, time, difficulty, price, category, description }) => {
   const { likedRecipes, toggleLike, addToCart, removeFromCart, cartItems, setSelectedRecipe } = useStore();
   const mealTitle = title || name || 'Meal Item';
   const displayPrice = Number(price !== undefined ? price : 9.99).toFixed(2);
