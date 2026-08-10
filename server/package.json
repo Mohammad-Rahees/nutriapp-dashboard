@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "build": "echo Backend build ready",
     "seed:admin": "node seeders/seedAdmin.js",
     "migrate:images": "node scripts/migrateImagesToCloudinary.js"
   },
