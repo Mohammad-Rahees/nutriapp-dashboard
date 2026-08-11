@@ -673,13 +673,8 @@ const useStore = create((set, get) => ({
         return { success: false, error: errData.message || 'Server error ' + res.status };
       }
     } catch (err) {
-      console.warn('API error saving meal to backend DB:', err);
-      // Local fallback for offline mode
-      const fallbackMeal = { id: Date.now().toString(), ...payload };
-      set((state) => ({
-        meals: [fallbackMeal, ...state.meals],
-      }));
-      return { success: true, meal: fallbackMeal, offline: true };
+      console.error('API error saving meal to backend DB:', err);
+      return { success: false, error: err.message || 'Failed to connect to backend server' };
     }
   },
 

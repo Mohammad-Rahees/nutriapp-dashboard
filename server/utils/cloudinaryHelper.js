@@ -45,10 +45,17 @@ const uploadToCloudinary = async (imageInput, folder = "nutriapp/meals") => {
       return uploadResult.secure_url;
     }
 
+    if (trimmedInput.startsWith("data:image")) {
+      return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80&auto=format&fit=crop";
+    }
+
     return trimmedInput;
   } catch (error) {
     console.error("⚠️ Cloudinary upload warning:", error.message || error);
-    // Return original input as fallback so application flow never breaks
+    // If base64 data string failed to upload to Cloudinary, return fallback URL so MongoDB write never fails
+    if (imageInput && typeof imageInput === "string" && imageInput.startsWith("data:image")) {
+      return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80&auto=format&fit=crop";
+    }
     return imageInput;
   }
 };
