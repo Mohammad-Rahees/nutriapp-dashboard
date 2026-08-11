@@ -62,7 +62,7 @@ const mealSchema = new mongoose.Schema(
 );
 
 // Pre-save hook to ensure category and mealType stay synced, and set name default
-mealSchema.pre("save", function (next) {
+mealSchema.pre("save", function () {
   if (this.mealType && !this.category) {
     this.category = this.mealType;
   } else if (this.category && !this.mealType) {
@@ -71,7 +71,6 @@ mealSchema.pre("save", function (next) {
   if (!this.name) {
     this.name = `${this.mealType || "Meal"} - ${new Date(this.date).toLocaleDateString()}`;
   }
-  next();
 });
 
 const Meal = mongoose.model("Meal", mealSchema);

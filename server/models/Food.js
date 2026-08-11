@@ -77,7 +77,7 @@ const foodSchema = new mongoose.Schema(
 );
 
 // Pre-save hook to ensure name and title match
-foodSchema.pre("save", function (next) {
+foodSchema.pre("save", function () {
   if (this.name && !this.title) {
     this.title = this.name;
   } else if (this.title && !this.name) {
@@ -88,7 +88,6 @@ foodSchema.pre("save", function (next) {
   } else if (!this.user && this.createdBy) {
     this.user = this.createdBy;
   }
-  next();
 });
 
 const Food = mongoose.model("Food", foodSchema);
