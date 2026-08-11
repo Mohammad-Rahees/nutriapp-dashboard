@@ -35,6 +35,8 @@ const useStore = create((set, get) => ({
   searchQuery: '',
   theme: 'light',
   authError: '',
+  resetToken: '',
+  setResetToken: (token) => set({ resetToken: token }),
 
   // Fetch catalog meals from MongoDB
   fetchMeals: async () => {
@@ -568,6 +570,46 @@ const useStore = create((set, get) => ({
   },
 
   logout: () => set({ isAuthenticated: false, user: null, cartItems: [], currentRoute: 'dashboard', authError: '' }),
+
+  // Request password reset email
+  forgotPassword: async (email) => {
+    set({ authError: '' });
+    try {
+      const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        return { success: true, message: data.message || 'If the email exists, a reset link has been sent.' };
+      } else {
+        return { success: false, message: data.message || 'Failed to request password reset.' };
+      }
+    } catch (err) {
+      return { success: false, message: 'Backend server unreachable. Please check backend status.' };
+    }
+  },
+
+  // Reset password using token
+  resetPassword: async (token, newPassword) => {
+    set({ authError: '' });
+    try {
+      const res = await fetch(`${BASE_URL}/auth/reset-password/${token}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        return { success: true, message: data.message || 'Password reset successfully. Please login.' };
+      } else {
+        return { success: false, message: data.message || 'Failed to reset password.' };
+      }
+    } catch (err) {
+      return { success: false, message: 'Backend server unreachable. Please check backend status.' };
+    }
+  },
 
   // Update customer profile in MongoDB Users collection
   updateUserProfile: async (profileData) => {

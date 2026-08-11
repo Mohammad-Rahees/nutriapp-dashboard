@@ -3,7 +3,7 @@ import useStore from '../store/useStore';
 import { Apple, ArrowRight, Lock, User, UserPlus } from 'lucide-react';
 
 const Login = () => {
-  const { login, signup, authError } = useStore();
+  const { login, signup, authError, setRoute } = useStore();
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
@@ -120,7 +120,13 @@ const Login = () => {
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-bold text-gray-700">Password</label>
                 {!isSignUpMode && (
-                  <a href="#" className="flex-shrink-0 text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors">Forgot password?</a>
+                  <button 
+                    type="button" 
+                    onClick={() => setRoute('forgot-password')} 
+                    className="flex-shrink-0 text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+                  >
+                    Forgot password?
+                  </button>
                 )}
               </div>
               <div className="relative">

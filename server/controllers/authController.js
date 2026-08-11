@@ -1,6 +1,8 @@
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const sendEmail = require("../utils/sendEmail");
 const { uploadToCloudinary } = require("../utils/cloudinaryHelper");
 
 // Helper to ensure default Admin exists in MongoDB
@@ -247,11 +249,120 @@ const updateUserProfile = async (req, res, next) => {
   }
 };
 
+// @desc    Forgot Password - Request password reset email
+// @route   POST /api/auth/forgot-password
+// @access  Public
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !email.trim()) {
+      res.status(400);
+      throw new Error("Please provide a registered email address");
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
+
+    // Always return success message to prevent user enumeration security attacks
+    const successResponse = {
+      success: true,
+      message: "If the email exists, a reset link has been sent.",
+    };
+
+    if (!user) {
+      return res.status(200).json(successResponse);
+    }
+
+    // Generate reset token and set expiry (15 mins)
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+
+    // Construct reset link URL
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const resetUrl = `${frontendUrl}/#reset-password/${resetToken}`;
+
+    // HTML Email Template
+    const htmlMessage = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; rounded-lg: 12px;">
+        <h2 style="color: #9333ea; margin-bottom: 16px;">NutriApp Password Reset</h2>
+        <p>Hello <strong>${user.name || "Valued User"}</strong>,</p>
+        <p>We received a request to reset your NutriApp account password. Click the button below to set a new password:</p>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${resetUrl}" style="background-color: #9333ea; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Reset My Password</a>
+        </div>
+        <p style="color: #666666; font-size: 14px;">This reset link will expire in <strong>15 minutes</strong> and can only be used once.</p>
+        <p style="color: #888888; font-size: 12px; margin-top: 24px; border-top: 1px solid #eeeeee; padding-top: 12px;">If you did not request a password reset, please ignore this email.</p>
+      </div>
+    `;
+
+    const textMessage = `Hello ${user.name},\n\nYou requested a password reset for your NutriApp account. Please click the following link to reset your password:\n\n${resetUrl}\n\nThis link is valid for 15 minutes.\n\nIf you did not request this, please ignore this email.`;
+
+    await sendEmail({
+      email: user.email,
+      subject: "NutriApp - Password Reset Link",
+      message: textMessage,
+      html: htmlMessage,
+      resetUrl,
+    });
+
+    return res.status(200).json(successResponse);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reset Password - Verify token and set new password
+// @route   PUT /api/auth/reset-password/:resetToken
+// @access  Public
+const resetPassword = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+
+    if (!password || password.trim().length < 8) {
+      res.status(400);
+      throw new Error("Password must be at least 8 characters long");
+    }
+
+    // Get hashed token
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(req.params.resetToken)
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      res.status(400);
+      throw new Error("Invalid or expired password reset token.");
+    }
+
+    // Set new password and invalidate reset token fields immediately
+    user.password = password.trim();
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully. Please login.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getMe,
   updateUserProfile,
+  forgotPassword,
+  resetPassword,
   seedAdminIfNeeded,
   seedDeliveryIfNeeded,
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 import HealthOverview from './pages/HealthOverview';
 import Categories from './pages/Categories';
@@ -11,12 +11,37 @@ import DeliveryDashboard from './pages/DeliveryDashboard';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailed from './pages/PaymentFailed';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import useStore from './store/useStore';
 
 function App() {
-  const { currentRoute, isAuthenticated, user } = useStore();
+  const { currentRoute, isAuthenticated, user, setResetToken, setRoute } = useStore();
 
-  if (!isAuthenticated) return <Login />;
+  // Detect password reset token from URL on mount
+  useEffect(() => {
+    const hash = window.location.hash || '';
+    const searchParams = new URLSearchParams(window.location.search);
+    let token = '';
+
+    if (hash.includes('reset-password/')) {
+      const parts = hash.split('reset-password/');
+      token = parts[1] ? parts[1].split('?')[0].split('/')[0] : '';
+    } else if (searchParams.get('token') || searchParams.get('resetToken')) {
+      token = searchParams.get('token') || searchParams.get('resetToken');
+    }
+
+    if (token) {
+      setResetToken(token);
+      setRoute('reset-password');
+    }
+  }, [setResetToken, setRoute]);
+
+  if (!isAuthenticated) {
+    if (currentRoute === 'forgot-password') return <ForgotPassword />;
+    if (currentRoute === 'reset-password') return <ResetPassword />;
+    return <Login />;
+  }
 
   // Role based route guards
   const isAdminRoute = currentRoute === 'admin';
@@ -42,6 +67,8 @@ function App() {
       {currentRoute === 'profile' && <ProfileSettings />}
       {currentRoute === 'about' && <AboutUs />}
       {currentRoute === 'contact' && <ContactUs />}
+      {currentRoute === 'forgot-password' && <ForgotPassword />}
+      {currentRoute === 'reset-password' && <ResetPassword />}
     </>
   );
 }
